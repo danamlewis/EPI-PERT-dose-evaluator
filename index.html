@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enzyme Dosage Contextualizer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #5f00b3;
+            text-align: center;
+        }
+        h2 {
+            color: #5f00b3;
+            text-align: center;
+        }
+        h4 {
+           
+            text-align: center;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+
+ /* Container for inline elements */
+        .inline-container {
+            text-align: center; /* Center inline elements */
+        }
+
+        .inline-block {
+            display: inline-block; /* Place elements on the same line */
+            margin-right: 10px; /* Add some space between the elements */
+        }
+
+        /* Centered container for the number of pills input */
+        .centered-container {
+            text-align: center; /* Center the container content */
+            margin-top: 10px; /* Add some space above the container */
+        }
+
+        .highlight {
+            color: #d9c2ed; /* Use your brand color */
+        }
+        
+        .print-button {
+            background-color: #4CAF50; /* Green color for the print button */
+            padding: 10px 20px;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        
+
+        select, input[type="number"] {
+            max-width: 200px;;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            font-size: 16px;
+        }
+        input[type="number"] {
+            width: 60px; /* smaller size for pill count */
+            padding: 10px;
+        }
+        button {
+          
+            padding: 10px 20px;
+            background-color: #5f00b3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        .small-button {
+            padding: 5px 10px; /* Smaller padding for smaller buttons */
+            font-size: 14px; /* Smaller font size */
+            margin: 5px; /* Margin around the buttons */
+        }
+
+        
+        button:hover {
+            background-color: #003d82;
+        }
+        .button-container {
+            width: 100%;
+         
+            text-align: center; /* This centers the content (including buttons) inside the container */
+        }
+        .result-section {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: none;
+            margin-top: 15px;
+        }
+        .result-section p {
+            margin: 0;
+        }
+        .info-button {
+            display: block;
+            margin: 0 auto;
+        }
+        
+        .footer {
+            color: #5f00b3;
+            text-align: center;
+            margin-top: 30px;
+            padding: 10px;
+            font-size: 16px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+
+    </style>
+    <script>
+        
+        var userId = Math.random().toString(36).substr(2, 9); // this is a randomly generated ID for purposes of counting button clicks per user
+        
+          var enzymeSizes = {
+              "Creon": ["3000", "6000", "12000", "24000", "36000"],
+              "Zenpep": ["3000", "5000", "10000", "15000", "20000", "25000", "40000"],
+              "Nutrizym": ["22000"]
+          };
+        
+        var lastSymptomResponse = null; // This will hold the last response ('yes' or 'no')
+
+          function updateSizes(enzyme) {
+              var sizeSelect = document.getElementById("sizeSelect");
+              sizeSelect.innerHTML = "";
+              var defaultOption = document.createElement("option");
+              defaultOption.value = "";
+              defaultOption.text = "Select Size";
+              defaultOption.disabled = true;
+              defaultOption.selected = true;
+              sizeSelect.appendChild(defaultOption);
+
+              if(enzymeSizes[enzyme]) {
+                  enzymeSizes[enzyme].forEach(function(size) {
+                      var option = document.createElement("option");
+                      option.value = size;
+                      option.text = size;
+                      sizeSelect.appendChild(option);
+                  });
+              }
+          }
+
+          function calculateUnits() {
+              var enzyme = document.getElementById("enzymeSelect").value;
+              var size = document.getElementById("sizeSelect").value;
+              var pills = document.getElementById("pillsInput").value;
+              
+              // Check if enzyme or size is not selected
+                 if (!enzyme || !size || isNaN(pills) || pills <= 0) {
+                     document.getElementById("result").innerHTML = "<p style='color: red;'>Please select a valid enzyme type, size, and enter the number of pills per meal.</p>";
+                     document.getElementById("result").style.display = "block";
+                     document.getElementById("moreInfo").style.display = "none";
+                     return; // Exit the function
+                 }
+                 
+                 // Check if pills are more than 25
+                    if (pills > 15) {
+                        var confirmPills = confirm("You have entered more than 15 pills. Is this correct?");
+                        if (!confirmPills) {
+                            document.getElementById("result").innerHTML = "<p style='color: red;'>Please enter the correct number of pills.</p>";
+                            document.getElementById("result").style.display = "block";
+                            document.getElementById("moreInfo").style.display = "none";
+                            return;
+                        }
+                    }
+                 
+              var lipaseUnits = parseInt(size);
+              var totalUnits = lipaseUnits * pills;
+
+              var doseStatus;
+                  if (totalUnits >= 40000 && totalUnits <= 50000) {
+                      doseStatus = "near";
+                  } else if (totalUnits < 40000) {
+                      doseStatus = "below";
+                  } else {
+                      doseStatus = "above";
+                  }
+
+              var doseLevel;
+                  if (totalUnits <= 39999) {
+                      doseLevel = "a low";
+                  } else if (totalUnits > 150000) {
+                      doseLevel = "a high";
+                  } else {
+                      doseLevel = "a typical";
+                  }
+
+              var warningText = "";
+                 if (pills > 15) {
+                     warningText = `<p style='color: red;'><strong>WARNING:</strong> You entered ${pills} pills - this may be an error. Please review your input.</p><br>`;
+                 }
+                 
+                 console.log("Enzyme:", enzyme, "Size:", size, "Pills:", pills);
+
+     
+                 // Calculate totalUnits and then send data
+                     if (enzyme && size && !isNaN(pills) && pills > 0) {
+                         sendData('submit', totalUnits);
+                     }
+                 
+              document.getElementById("result").innerHTML = `
+                    ${warningText}
+              
+                  You are taking ${totalUnits.toLocaleString()} units of lipase per meal.<br><br>
+                  This is ${doseStatus} the standard starting dose recommended by most guidelines.<br><br>
+                  ${doseStatus !== "near" ? "This is considered to be " + doseLevel + " dose, relative to the amounts recommended by guidelines.<br><br>" : ""}
+                                               
+              `;
+
+            // Include symptom buttons directly in the result HTML
+            document.getElementById("symptoms-section").innerHTML = `
+                <p>Are you still experiencing symptoms with your current dose of enzymes?</p><br>
+                <div class="button-container">
+                    <button onclick="showMoreInfo('yes')">YES</button>
+                    <button onclick="showMoreInfo('no')">NO</button>
+                </div>
+            `;
+            
+            // display
+            document.getElementById("symptoms-section").style.display = 'block'
+            
+            // Check if there was a previous response and update the symptom-response section
+<!--            if (lastSymptomResponse !== null) {-->
+<!--                showMoreInfo(lastSymptomResponse); // Reuse the last response-->
+<!--            }-->
+            
+            // Display the result section
+            document.getElementById("result").style.display = "block";
+            
+            // Hide the symptom-response section
+                document.getElementById("symptom-response").style.display = 'none';
+                // Clear and hide the feedback message
+                    document.getElementById("feedback-message").innerHTML = '';
+                    document.getElementById("feedback-message").style.display = 'none';
+                    document.getElementById("site-usefulness").style.display = 'none';
+
+
+          }
+
+        function showMoreInfo(response, totalUnits, doseStatus, pills){
+              
+              console.log("showMoreInfo function called");
+              
+              lastSymptomResponse = response;
+              
+              var enzyme = document.getElementById("enzymeSelect").value;
+              var size = document.getElementById("sizeSelect").value;
+              var pills = document.getElementById("pillsInput").value;
+              
+              console.log("Enzyme selected: " + enzyme);
+              console.log("Size selected: " + size);
+              console.log("Number of pills: " + pills);
+              
+              if (!enzyme || !size || !pills) {
+                  console.log("Required fields are missing.");
+                  return; // Exit the function if any required field is missing
+              }
+              
+              var lipaseUnits = parseInt(size);
+              var totalUnits = lipaseUnits * pills;
+              
+              console.log("Lipase units: " + lipaseUnits);
+              console.log("Total units: " + totalUnits);
+              
+              
+              var doseStatus = totalUnits >= 40000 && totalUnits <= 50000 ? "near" :
+              totalUnits < 40000 ? "below" : "above";
+              
+              console.log("Dose status: " + doseStatus);
+              
+              
+             var symptomResponseText = ''
+             if (doseStatus === "below") {
+                 symptomResponseText += `<p>Your dose is ${doseStatus} the standard starting dose (40-50,000 units of lipase) recommended in most guidelines. `;
+             } else { // for "near" or "above"
+                 symptomResponseText += ``;
+             }
+
+             if (response === 'no') {
+                 sendData('no', totalUnits);
+                 symptomResponseText += `Because you are not experiencing symptoms with your current dose of enzymes, your dose is likely sufficient for the typical meals that you are eating.<br><br>Keep in mind that meals with more fat or protein than normal may require more enzymes. It is also possible for your pancreas to change how much it is producing over time, and that eventually you may need to adjust your enzyme dose again in the future.<br><br></p>`;
+
+                 
+             } else if (response === 'yes') {
+                 sendData('yes', totalUnits);
+                 symptomResponseText += `Because you are experiencing symptoms with your current dose of enzymes, you may need to increase the amount of enzymes that you are taking for a typical meal. This can be done by increasing the number of pills you are taking with your current prescription.<br><br></p>
+                              
+                                `;
+                                
+                                // Conditionally display the note based on the total lipase units
+                                if (totalUnits < 150000) {
+                                    symptomResponseText += `
+                                        
+                                      <p>Many people need more per meal than the amount you are currently taking. Guidelines suggest increasing up to 2-3 times the starting dose (40-50,000 units), which means up to 150,000 units of lipase per meal.</p>
+                                                                  <br>
+
+                                    <p><i>(Note: Some people still need more than that; but around or above 150,000 units of lipase per meal, your healthcare provider may want to discuss testing a PPI alongside your enzyme dose to see if that improves your symptoms.)</i></p>`;
+                                } else {
+                                    symptomResponseText += `<p>Note: Guidelines suggest trialing a PPI (an acid-reducing medication) if enzymes around or above 150,000 units per meal are not effective at reducing symptoms of EPI (PEI). It is possible for some people to eliminate symptoms with a higher dose of enzymes without PPI, but some may need an acid-reducing medication to support enzyme efficacy as well. Ask your doctor about this if they have not already talked with you about this.</p>`;
+                                }
+                                symptomResponseText += `<br>`;
+                                
+                                // Calculate how many pills are needed to reach the standard starting dose
+                                var startingDosePills = Math.ceil(40000 / lipaseUnits);
+                                if (parseInt(pills) < startingDosePills) {
+                                    symptomResponseText += `
+                                        <p>For example, to reach the standard starting dose recommended by most EPI guidelines, given your current prescription of ${enzyme} ${size} pills, it would take ${startingDosePills} pills per meal of ${enzyme} ${size}. You can talk to your doctor or try taking more pills per meal.</p><br>`;
+                                }
+                            }
+
+                                 // Show the paragraph about larger pills if there are larger sizes available
+                                     var largerPillSizes = enzymeSizes[enzyme].filter(pillSize => parseInt(pillSize) > lipaseUnits);
+                                     if (largerPillSizes.length > 0) {
+                                         var largerPillOptions = largerPillSizes.map(pillSize => `${enzyme} ${pillSize}`).join("; ");
+                                         symptomResponseText += `<p>If this feels like a large number of pills, you should know that there are larger size pills available such as ${largerPillOptions}. These would require taking fewer pills per meal. Talk to your doctor about changing your prescription to a different size and number of pills if your current prescription is not enough or you are taking a large number of pills per meal or overall per day.</p>`;
+                                     }
+           
+           document.getElementById("symptom-response").innerHTML = symptomResponseText;
+           document.getElementById("symptom-response").style.display = 'block';
+           document.getElementById("site-usefulness").style.display = 'block'; // Display the site usefulness section
+           document.getElementById("feedback-message").style.display = 'block';
+                
+          }
+             
+             
+             function recordUsefulness(response) {
+                              console.log("User found the site " + response);
+
+                              // Call sendData with the response for site usefulness
+                              sendData('usefulness', null, response); // Ensure the correct variable is used here
+
+                              // Conditional response based on the user's feedback
+                              var feedbackMessage = '';
+                              if (response === 'yes') {
+                                  feedbackMessage = "<p>Thanks for your feedback!</p>";
+                              } else if (response === 'no') {
+                                  feedbackMessage = "<p>Feel free to email me if you have suggestions for making this site more useful or helpful. Email me at <a href='mailto:Dana+PERT-dose@OpenAPS.org'>Dana+PERT-dose@OpenAPS.org</a>.</p>";
+                              }
+
+                              
+                              // Update only the feedback-message div with the feedback message
+                              document.getElementById("feedback-message").innerHTML = feedbackMessage;
+                             
+                          }
+
+
+
+          
+          function showModal(modalId) {
+              document.getElementById(modalId + 'Modal').style.display = 'block';
+          }
+
+          function closeModal(modalId) {
+              document.getElementById(modalId + 'Modal').style.display = 'none';
+          }
+          
+          function sendData(actionType, totalUnits, usefulnessResponse = null) {
+              console.log("sendData called with actionType:", actionType);
+              
+              // Generate a timestamp
+                      var timestamp = new Date().toISOString();
+              
+              const data = {
+                  enzymeSelect: document.getElementById("enzymeSelect").value,
+                  sizeSelect: document.getElementById("sizeSelect").value,
+                  pillsInput: document.getElementById("pillsInput").value,
+                  totalUnits: totalUnits,
+                  submitClicked: actionType === 'submit',
+                  yesClicked: actionType === 'yes',
+                  noClicked: actionType === 'no',
+                  usefulnessResponse: usefulnessResponse,
+                  timestamp: timestamp, // Include the timestamp
+                  userId: userId // Include the randomly generated user ID
+              };
+
+              fetch('https://calm-plateau-06427.herokuapp.com/high-low', {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(data)
+              })
+              .then(response => response.json())
+              .then(data => console.log('Success:', data))
+              .catch((error) => console.error('Error:', error));
+          }
+
+          
+      </script>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Am I taking enough PERT?</h1>
+        <h2>(Is my dose high or low?)</h2>
+        <h4>Enter how much PERT you typically take for a meal:</h4>
+        
+        <!-- Inline container for the dropdowns -->
+        <div class="inline-container">
+            <!-- Type of PERT Dropdown -->
+            <div class="inline-block">
+                <label for="enzymeSelect">Type of PERT:</label>
+                <select id="enzymeSelect" onchange="updateSizes(this.value)">
+                    <option value="" disabled selected>Select Enzyme Type</option>
+                    <option value="Creon">Creon</option>
+                    <option value="Zenpep">Zenpep</option>
+                    <option value="Nutrizym">Nutrizym</option>
+                </select>
+            </div>
+
+            <!-- Size Dropdown -->
+            <div class="inline-block">
+                <label for="sizeSelect">Size:</label>
+                <select id="sizeSelect">
+                    <option value="" disabled selected>Select Size</option>
+                    <!-- Sizes will be populated based on enzyme selection -->
+                </select>
+            </div>
+        </div>
+
+        <!-- Number of Pills Input -->
+        <div class="centered-container">
+            <label for="pillsInput">Number of pills per meal:</label>
+            <input type="number" id="pillsInput" min="1" max="99" placeholder="1-99">
+        </div>
+
+        <!-- Submit Button -->
+        <div class="button-container">
+        <button onclick="calculateUnits()">Submit</button>
+        </div>
+
+        <!-- Results Display Section -->
+        <div class="result-section" id="result">
+            <!-- Dynamic results will be displayed here -->
+        </div>
+        
+        <!-- Yes/No Buttons -->
+        <div id="symptoms-section" class="result-section" style="display:none;">
+            <!-- Symptom question and buttons will be displayed here -->
+        </div>
+
+
+        <!-- Symptom Response Section -->
+        <div id="symptom-response" class="result-section" style="display:none;">
+            <!-- Symptom response text will be displayed here after "Yes" or "No" is clicked -->
+        </div>
+
+    
+    <!-- Site Usefulness Section (outside of result-section) -->
+    <div id="site-usefulness" style="text-align: center; display: none;">
+        <p>Was this helpful?</p>
+        <div class="button-container">
+            <button class="small-button" onclick="recordUsefulness('yes')">YES</button>
+            <button class="small-button" onclick="recordUsefulness('no')">NO</button>
+        </div>
+        <div id="feedback-message"></div> <!-- New div for feedback message -->
+    </div>
+
+    
+    </div>
+    
+
+    <div class="footer">
+        <a href="#" onclick="showModal('about')">About this site</a> |
+        <a href="#" onclick="showModal('faq')">FAQ</a> |
+        <a href="#" onclick="showModal('privacy')">Privacy</a>
+    </div>
+    
+    <div id="aboutModal" class="modal">
+        <div class="modal-content">
+                <span class="close" onclick="closeModal('about')">&times;</span>
+                <h3>About This Site</h3>
+                <p>This site was developed to be an informational resource. This is not medical advice; talk to your doctor for specific questions related to your personal, individual medical care. Use this information at your own risk.</p>
+
+                <p>The goal of this website is to help contextualize information compared to the standard guidelines in the medical literature related to EPI.</p>
+
+                <h4>How This Site Works</h4>
+                <p>The site takes the brand and size of PERT you are taking and the number of pills, and multiplies it to show the total dose, in terms of units of lipase, that you entered. It then compares to the standard guidelines for EPI, most of which indicate that 40-50,000 units of lipase is a reasonable starting dose per meal (<a href="https://bit.ly/3GTqrCy" target="_blank">source</a>). Any dose lower than this is categorized as low. The guidelines also suggest titrating (increasing) doses based on symptoms up to 2-3 times the starting dose. This means up to 150,000 units of lipase. Any dose higher than this is categorized as high. That doesn’t mean it’s not the needed dose for an individual, if that amount of PERT per meal manages their symptoms; but simply a context compared to the standard guidelines.</p>
+                
+                <p>Based on whether you report yes or no for symptoms, the site then provides additional context of this dose related to the guidelines and a reminder that other pill sizes exist. Note that the list of sizes is based on US PERT availability and other countries may have different brands and sizes availability; ask your doctor to investigate other size options that are accessible in your country if needed.</p>
+
+
+                <h4>Who Made This Site?</h4>
+                <p>Dana Lewis, a person living with EPI, made this site. She’s not a doctor. (She has published <a href="https://DIYPS.org/research" target="_blank">research papers about EPI</a>, though). She has no financial conflicts of interest or any ties to any pharmaceutical company. Her goal for this site was to help people evaluate their dosing and help them have more informed conversations with their doctors about pancreatic enzyme replacement therapy (PERT) dosing.</p>
+
+                <h4>Questions? Feedback? Ideas?</h4>
+                <p>Questions? Feedback? Ideas to make this site more helpful? You can email Dana+PERT-dose@OpenAPS.org</p>
+            </div>
+        </div>
+
+    <div id="faqModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('faq')">&times;</span>
+            <h3>Frequently Asked Questions (FAQ)</h3>
+
+            <dl>
+                <dt><strong>What is PERT?</strong></dt>
+                <dd> PERT stands for "pancreatic enzyme replacement therapy". This is the name for the treatment of exocrine pancreatic insufficiency / pancreatic exocrine insufficiency / pancreatic insufficiency (EPI / PEI / PI) where the pancreas no longer produces enough digestive enzymes to digest food by itself. Instead, people with EPI need enzymes to support digestion of anything with macronutrients (fat, protein, and carbohydrates) that they eat. PERT contains three enzyme types: lipase, to aid fat digestion; protease, to aid protein digestion; and amylase, to aid carbohydrate digestion. PERT is typically sized by (and described by) the amount of lipase units for fat digestion, even though it contains varying amounts of all three types of enzymes.</dd>
+                <br>
+                <dt><strong>How is the PERT dose per meal calculated in this website?</strong></dt>
+                <dd> The site calculates the total dose of lipase units by multiplying the  size of the PERT with the number of pills per meal. This total dose per meal is then compared to standard EPI guidelines, which typically suggest a starting dose of 40-50,000 units of lipase per meal.(<a href="https://bit.ly/3GTqrCy" target="_blank">source</a>)</dd>
+                <br>
+                <dt><strong>What does it mean if the dose is categorized as low or high?</strong></dt>
+                <dd>A dose lower than the standard starting dose of 40-50,000 units is categorized as low, while a dose higher than 150,000 units is categorized as high. This is based on the guidelines recommending 2-3 times increase of the starting dose (e.g. 3 times 50,000 is 150,000). After that, the guidelines suggest exploring a PPI (<a href="https://bit.ly/3GTqrCy" target="_blank">source</a>). These categorizations used by the site are relative to the standard guidelines and do not necessarily reflect the appropriateness of the dose for an individual. Some individuals with EPI do take more than 150,000 units of lipase per meal.</dd>
+                <br>
+                <dt><strong>What is the purpose of this website?</strong></dt>
+                <dd>This website serves as an informational resource to help individuals with Exocrine Pancreatic Insufficiency (EPI) understand and contextualize their Pancreatic Enzyme Replacement Therapy (PERT) dosing in comparison to standard medical guidelines. It's important to remember that this is not medical advice and you should always consult with your healthcare provider for personal medical care.</dd>
+                <br>
+                <dt><strong>Are the PERT brands and sizes listed comprehensive?</strong></dt>
+                <dd>The list of PERT brands and sizes is based on availability in the United States and a few other common doses available in other countries. Availability may vary in other countries, so it's advisable to consult with your healthcare provider about the options accessible in your region or country.</dd>
+                <br>
+                <dt><strong>Who created this site and why?</strong></dt>
+                <dd>Dana Lewis, a person living with EPI, developed this site. Her aim is to assist others in evaluating their PERT dosing and to foster more informed discussions with healthcare providers about PERT. You can find her research papers about EPI, including a systematic review of hundreds of papers about EPI and PERT dosing guidelines, which this site is based on, <a href="https://DIYPS.org/research" target="_blank">here</a>.</dd>
+                <br>
+                <dt><strong>How can I provide feedback or ask further questions?</strong></dt>
+                <dd>For feedback, questions, or suggestions to improve the site, feel free to reach out via email at Dana+PERT-dose@OpenAPS.org.</dd>
+            </dl>
+
+        </div>
+    </div>
+
+    <div id="privacyModal" class="modal">
+        <div class="modal-content">
+                <span class="close" onclick="closeModal('privacy')">&times;</span>
+                <h3>Privacy</h3>
+                <p>This site does not identify nor attempt to track identifying information. The site does track general usage data such as button clicks, for purposes of understanding how often the site is being used. It does not collect nor track IP address or any other identifying information.</p>
+            </div>
+        </div>
+
+</body>
+</html>
